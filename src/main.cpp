@@ -22,15 +22,18 @@ int redLED = 26;
 unsigned long currentTime, elapsedTime, prevBlinkTime;
 bool ledState = false;
 
-// screen state
-bool measured = false;
-bool showingEvent = false;
+// screen state flags
+bool buttonReleased = true;
+bool measured, onDataScreen, showingEvent = false;
 
 // function prototypes
+void dataScreen();
+void defaultScreen();
 void eventOccuredScreen();
 void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len);
 
 void setup(){
+  // pin setup
   pinMode(18, INPUT);
   pinMode(greenLED, OUTPUT);
   pinMode(redLED, OUTPUT);
@@ -49,24 +52,27 @@ void setup(){
 
   // initialise LCD and green LED
   lcd.begin(16,2);
-  lcd.print("No event has");
-  lcd.setCursor(0, 2);
-  lcd.print("occured.");
+  defaultScreen();
   digitalWrite(greenLED, HIGH);
 }
 
 void loop(){
+  // check if the button is released. This is so that one button can be used for multiple functions
+  if (digitalRead(18) == LOW){
+    buttonReleased = true;
+  }
+
   // if data is received
   if (measured == true){
 
     // displays "EVENT OCCURED" screen if not already, and does some initial LED changing.
     if (!showingEvent){
       eventOccuredScreen();
-      showingEvent = true;
       digitalWrite(greenLED, LOW);
       digitalWrite(redLED, HIGH);
       prevBlinkTime = millis();
       ledState = true;
+      showingEvent = true;
     }
 
     // red LED blinking logic
@@ -86,18 +92,40 @@ void loop(){
     }
 
     // dismiss "EVENT OCCURED" screen and print data on LCD
-    if (digitalRead(18) == HIGH){
-      lcd.clear();
-      lcd.print("Open for:");
-      lcd.setCursor(0, 1);
-      lcd.print(myData.timeDuration);
-      lcd.print(" sec");
-      measured = false;
-      showingEvent = false;
+    if (digitalRead(18) == HIGH && buttonReleased){
+      dataScreen();
       digitalWrite(greenLED, HIGH);
       digitalWrite(redLED, LOW);
+      buttonReleased = false;
+      measured = false;
+      onDataScreen = true;
+      showingEvent = false;
     }
   }
+
+  // dismiss data screen back to default screen if button is pressed
+  if ((digitalRead(18) == HIGH) && onDataScreen && buttonReleased){
+    defaultScreen();
+    buttonReleased = false;
+    onDataScreen = false;
+  }
+}
+
+// function for displaying the data screen and its data
+void dataScreen(){
+  lcd.clear();
+  lcd.print("Open for:");
+  lcd.setCursor(0, 1);
+  lcd.print(myData.timeDuration);
+  lcd.print(" sec");
+}
+
+// function for displaying the default screen
+void defaultScreen(){
+  lcd.clear();
+  lcd.print("No event has");
+  lcd.setCursor(0, 2);
+  lcd.print("occured.");
 }
 
 // function for displaying "EVENT OCCURED" screen
